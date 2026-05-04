@@ -1,8 +1,37 @@
 {
-  "name": "uwu-solana",
+  "name": "solana-frontier",
   "version": "0.9.2",
   "private": true,
   "scripts": {
-    "build": "node build.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "anchor:build": "anchor build",
+    "anchor:test": "anchor test",
+    "anchor:deploy": "anchor deploy"
+  },
+  "dependencies": {
+    "next": "15.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@vercel/analytics": "^1.0.0",
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/web3.js": "^1.95.8",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/spl-token": "^0.4.9",
+    "@supabase/supabase-js": "^2.49.1",
+    "tweetnacl": "^1.0.3",
+    "bs58": "^6.0.0",
+    "lucide-react": "^0.468.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.7.0"
   }
 }
