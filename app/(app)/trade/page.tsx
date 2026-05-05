@@ -17,7 +17,8 @@ export default function TradePage() {
       <div>
         <h1 className="page-title">P2P Market</h1>
         <p className="page-sub">
-          Trustless SOL ↔ INR swaps on Solana. Seller locks SOL in escrow · buyer pays UPI · oracle verifies · vault auto-releases.
+          Seller locks SOL on-chain once. Buyer matches, pays INR (UPI on the trade page), completes Setu when enabled,
+          then releases SOL to their wallet.
         </p>
       </div>
 
@@ -32,7 +33,7 @@ export default function TradePage() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`tab-btn ${tab === t ? 'tab-btn--active' : ''}`}
+                className={`tab-btn tab-btn--${t} ${tab === t ? 'tab-btn--active' : ''}`}
               >
                 {t === 'buy' ? 'Buy SOL' : 'Sell SOL'}
               </button>

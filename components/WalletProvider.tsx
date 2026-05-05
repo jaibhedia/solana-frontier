@@ -9,7 +9,7 @@ import {
   WalletProvider as _WalletProvider,
 } from '@solana/wallet-adapter-react';
 import { WalletModalProvider as _WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { SOLANA_RPC } from '@/lib/constants';
 
 // Type-cast the wallet adapter components to avoid React-18 FC return type mismatch
@@ -21,10 +21,8 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 
 export function SolanaWalletProvider({ children }: { children: React.ReactNode }) {
   const endpoint = SOLANA_RPC || clusterApiUrl(WalletAdapterNetwork.Devnet);
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [],
-  );
+  // Phantom self-registers as a Standard Wallet — no adapter needed
+  const wallets = useMemo(() => [new SolflareWalletAdapter()], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>

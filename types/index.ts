@@ -6,7 +6,6 @@ export type HeroLayout = 'A' | 'B' | 'C';
 export interface Tweaks {
   accent: AccentKey;
   heroLayout: HeroLayout;
-  dark: boolean;
 }
 
 export type StatusCls = 'ok' | 'attest' | 'pending';

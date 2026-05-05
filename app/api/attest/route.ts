@@ -6,6 +6,7 @@ import { buildAttestationMessage } from '@/lib/solana/utils';
 import { setuGet } from '@/lib/setu';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 // ── Oracle keypair ────────────────────────────────────────────────────────────
 

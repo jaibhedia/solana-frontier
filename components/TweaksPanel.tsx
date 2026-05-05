@@ -40,13 +40,6 @@ export default function TweaksPanel({ tweaks, setTweak }: TweaksPanelProps) {
           ))}
         </div>
       </div>
-      <div className="tweak-row">
-        <span>Mode</span>
-        <div className="seg">
-          <button className={!tweaks.dark ? 'active' : ''} onClick={() => setTweak('dark', false)}>Day</button>
-          <button className={tweaks.dark ? 'active' : ''} onClick={() => setTweak('dark', true)}>Dusk</button>
-        </div>
-      </div>
       <div style={{ marginTop: 10, fontSize: 10, color: 'var(--ink-mute)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
         Live — saved to disk
       </div>

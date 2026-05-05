@@ -2,34 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { setuGet, setuPost } from '@/lib/setu';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
-type ConsentResp = {
-  status: string;
-  detail?: { dataRange?: { from: string; to: string } };
-};
-
-type SessionResp = {
-  id: string;
-  status: string;
-  Payload?: {
-    Data?: Array<{
-      decryptedFI?: {
-        transactions?: {
-          transaction?: UpiTxn[];
-        };
-      };
-    }>;
-  };
-};
-
-export type UpiTxn = {
-  amount: string;
-  type: string;
-  mode: string;
-  narration?: string;
-  txnId?: string;
-  valueDate?: string;
-};
+type ConsentResp = { status: string };
+type SessionResp = { id: string; status: string };
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,34 +18,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ status: consent.status, ready: false });
     }
 
-    // Consent approved — fetch FI data to verify transactions
-    const range = consent.detail?.dataRange ?? {
-      from: new Date(Date.now() - 30 * 86400_000).toISOString(),
-      to:   new Date().toISOString(),
-    };
+    // Consent is ACTIVE — try to start FI data session (24h window, always within consent range)
+    const now = Date.now();
+    let sessionId: string | undefined;
+    try {
+      const session = await setuPost<SessionResp>('/v2/data-sessions', {
+        consentId: id,
+        DataRange: {
+          from: new Date(now - 24 * 3600_000).toISOString(),
+          to:   new Date(now).toISOString(),
+        },
+        format: 'json',
+      });
+      sessionId = session.id;
+    } catch (e) {
+      console.warn('[setu/status] FI session start failed (non-fatal):', (e as Error).message);
+    }
 
-    const session = await setuPost<SessionResp>('/v2/sessions', {
-      consentId: id,
-      dataRange: range,
-      format: 'json',
-    });
-
-    // Brief wait for async FI fetch then poll once
-    await new Promise((r) => setTimeout(r, 2000));
-    const fiData = await setuGet<SessionResp>(`/v2/sessions/${session.id}`);
-
-    const transactions: UpiTxn[] = (fiData.Payload?.Data ?? []).flatMap((d) => {
-      const txns = d.decryptedFI?.transactions?.transaction;
-      return Array.isArray(txns) ? txns : [];
-    });
-
-    return NextResponse.json({
-      status: 'ACTIVE',
-      ready:  fiData.status === 'COMPLETED',
-      sessionId: session.id,
-      fiStatus:  fiData.status,
-      transactions,
-    });
+    return NextResponse.json({ status: 'ACTIVE', ready: true, sessionId });
   } catch (e) {
     console.error('[setu/status]', e);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

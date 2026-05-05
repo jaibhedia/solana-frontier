@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Serif, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/react';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
 
 const plexSerif = IBM_Plex_Serif({
@@ -40,8 +41,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        {children}
-        <Analytics />
+        <ThemeProvider>
+          {children}
+          <Analytics />
+        </ThemeProvider>
       </body>
     </html>
   );

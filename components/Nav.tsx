@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Nav() {
   return (
@@ -14,7 +15,10 @@ export default function Nav() {
           <a href="#waitlist">Waitlist</a>
           <a href="#docs">Docs</a>
         </nav>
-        <Link href="/dashboard" className="nav-cta">Open app →</Link>
+        <div className="nav-actions">
+          <ThemeToggle />
+          <Link href="/dashboard" className="nav-cta">Open app →</Link>
+        </div>
       </div>
     </header>
   );

@@ -1,38 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { redis } from '@/lib/redis';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
-// In-memory store — survives across requests in the same serverless instance.
-// For multi-instance deployments use Supabase/Redis instead.
-const webhookStore = new Map<string, { consentStatus: string; fiStatus?: string; updatedAt: number }>();
-
+type WebhookEntry = { consentStatus: string; fiStatus?: string; updatedAt: number };
 type WebhookBody = {
   type: 'CONSENT_STATUS_UPDATE' | 'FI_STATUS_UPDATE' | string;
   consentId: string;
   timestamp: string;
   success: boolean;
-  data: {
-    status: string;
-  };
+  data: { status: string };
 };
+
+const key = (consentId: string) => `setu:consent:${consentId}`;
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as WebhookBody;
     console.log('[setu/webhook]', body.type, body.consentId, body.data?.status);
 
-    const entry = webhookStore.get(body.consentId) ?? { consentStatus: 'PENDING', updatedAt: 0 };
+    const raw = await redis.get<string>(key(body.consentId));
+    const entry: WebhookEntry = raw
+      ? (typeof raw === 'string' ? JSON.parse(raw) : raw)
+      : { consentStatus: 'PENDING', updatedAt: 0 };
 
     if (body.type === 'CONSENT_STATUS_UPDATE') {
       entry.consentStatus = body.data.status;
       entry.updatedAt = Date.now();
-      webhookStore.set(body.consentId, entry);
     } else if (body.type === 'FI_STATUS_UPDATE') {
       entry.fiStatus = body.data.status;
       entry.updatedAt = Date.now();
-      webhookStore.set(body.consentId, entry);
     }
 
+    await redis.set(key(body.consentId), JSON.stringify(entry), { ex: 60 * 60 * 24 });
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('[setu/webhook]', e);
@@ -40,7 +41,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Allow Setu to check the webhook is reachable
 export async function GET() {
-  return NextResponse.json({ ok: true, entries: webhookStore.size });
+  return NextResponse.json({ ok: true });
 }

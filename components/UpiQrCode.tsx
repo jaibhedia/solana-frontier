@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { Copy, Check, ExternalLink } from 'lucide-react';
 
 interface UpiQrCodeProps {
@@ -12,9 +13,16 @@ interface UpiQrCodeProps {
 
 export function UpiQrCode({ sellerVpa, inrAmountRupees, tradeId, sellerName = 'uWu Trade' }: UpiQrCodeProps) {
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   const upiLink = `upi://pay?pa=${encodeURIComponent(sellerVpa)}&pn=${encodeURIComponent(sellerName)}&am=${inrAmountRupees}&tn=${encodeURIComponent('uWu:' + tradeId.slice(0, 16))}&cu=INR`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(upiLink)}`;
+
+  useEffect(() => {
+    if (!sellerVpa || !inrAmountRupees) return;
+    QRCode.toDataURL(upiLink, { width: 220, margin: 2, color: { dark: '#1a1410', light: '#faf7f2' } })
+      .then(setQrDataUrl)
+      .catch(() => {});
+  }, [upiLink, sellerVpa, inrAmountRupees]);
 
   const handleCopy = async () => {
     try {
@@ -27,12 +35,14 @@ export function UpiQrCode({ sellerVpa, inrAmountRupees, tradeId, sellerName = 'u
   return (
     <div className="upi-qr-card">
       <div style={{ textAlign: 'center' }}>
-        <p className="upi-qr-label">UPI Payment QR</p>
-        <p className="upi-qr-sub">Share with buyer — money goes directly to your bank</p>
+        <p className="upi-qr-label">Pay with UPI</p>
+        <p className="upi-qr-sub">Scan or open in any UPI app</p>
       </div>
       <div className="upi-qr-img-wrap">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrUrl} alt={`UPI QR for ₹${inrAmountRupees} to ${sellerVpa}`} width={200} height={200} />
+        {qrDataUrl
+          ? <img src={qrDataUrl} alt={`UPI QR for ₹${inrAmountRupees} to ${sellerVpa}`} width={220} height={220} style={{ borderRadius: 8 }} />
+          : <div style={{ width: 220, height: 220, background: 'var(--rule)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--ink-mute)' }}>generating…</span></div>
+        }
       </div>
       <div style={{ textAlign: 'center' }}>
         <p className="upi-qr-amount">₹{Number(inrAmountRupees).toLocaleString('en-IN')}</p>
@@ -47,7 +57,6 @@ export function UpiQrCode({ sellerVpa, inrAmountRupees, tradeId, sellerName = 'u
           <ExternalLink size={14} /> Open in app
         </a>
       </div>
-      <p className="upi-qr-note">Trade note embeds the trade ID for automatic oracle verification</p>
     </div>
   );
 }

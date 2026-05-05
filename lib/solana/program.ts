@@ -114,7 +114,7 @@ function matchOrderIx(
   });
 }
 
-function releaseWithAttestationIx(
+export function releaseWithAttestationIx(
   payer: PublicKey,
   tradePda: PublicKey,
   vaultPda: PublicKey,
@@ -366,6 +366,41 @@ export async function raiseDispute(
   const initiator = provider.wallet.publicKey;
   const [tradePda] = findTradePda(params.tradeId);
   const ix = disputeIx(initiator, tradePda, params.tradeId);
+  const tx = new Transaction().add(ix);
+  return provider.sendAndConfirm(tx);
+}
+
+export async function resolveDispute(
+  provider: AnchorProvider,
+  params: { tradeId: Uint8Array; seller: string; buyer: string; releaseToBuyer: boolean },
+): Promise<string> {
+  const admin = provider.wallet.publicKey;
+  const [tradePda] = findTradePda(params.tradeId);
+  const [vaultPda] = findVaultPda(params.tradeId);
+  const [oracleConfigPda] = findOracleConfigPda();
+  const sellerPubkey = new PublicKey(params.seller);
+  const buyerPubkey  = new PublicKey(params.buyer);
+
+  const disc = instructionDiscriminator('resolve_dispute');
+  const buf  = Buffer.alloc(8 + 32 + 1);
+  disc.copy(buf);
+  Buffer.from(params.tradeId).copy(buf, 8);
+  buf.writeUInt8(params.releaseToBuyer ? 1 : 0, 40);
+
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: tradePda,        isSigner: false, isWritable: true  },
+      { pubkey: vaultPda,        isSigner: false, isWritable: true  },
+      { pubkey: sellerPubkey,    isSigner: false, isWritable: true  },
+      { pubkey: buyerPubkey,     isSigner: false, isWritable: true  },
+      { pubkey: oracleConfigPda, isSigner: false, isWritable: false },
+      { pubkey: admin,           isSigner: true,  isWritable: true  },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: buf,
+  });
+
   const tx = new Transaction().add(ix);
   return provider.sendAndConfirm(tx);
 }

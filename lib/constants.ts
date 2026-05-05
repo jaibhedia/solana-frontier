@@ -6,7 +6,6 @@ import { PublicKey } from '@solana/web3.js';
 export const TWEAK_DEFAULTS: Tweaks = {
   accent: 'terracotta',
   heroLayout: 'A',
-  dark: false,
 };
 
 export const ACCENT_MAP: Record<AccentKey, Record<string, string>> = {
@@ -44,6 +43,7 @@ export const BETA_LABEL        = process.env.NEXT_PUBLIC_BETA_LABEL        ?? 'I
 
 export const PROGRAM_ID_STR    = process.env.NEXT_PUBLIC_PROGRAM_ID        ?? 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS';
 export const ORACLE_PUBKEY_HEX = process.env.NEXT_PUBLIC_ORACLE_PUBKEY_HEX ?? '';
+export const ADMIN_PUBKEY      = '2vx4oWeeynxYsHG8kA7ZRARJXGRCYDE6GtcxpQCdGV19';
 
 export const PROGRAM_ID = new PublicKey(PROGRAM_ID_STR);
 

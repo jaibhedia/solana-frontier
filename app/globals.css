@@ -110,6 +110,22 @@ button { font-family: inherit; cursor: pointer; }
   transition: transform .15s ease, background .15s ease;
 }
 .nav-cta:hover { background: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
+.nav-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-2);
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle--placeholder { visibility: hidden; pointer-events: none; }
 
 /* ---------- Hero ---------- */
 .hero { padding: 72px 0 40px; position: relative; }
@@ -570,7 +586,7 @@ button { font-family: inherit; cursor: pointer; }
 .seg button.active { background: var(--ink); color: var(--paper); }
 
 /* ---------- Dark mode override ---------- */
-body.dark {
+html.dark {
   --bg: #1C1713;
   --bg-2: #231C17;
   --bg-3: #2B231C;
@@ -582,18 +598,42 @@ body.dark {
   --paper: #231C17;
   --dot: rgba(242,234,219,0.14);
 }
-body.dark::before { background-image: radial-gradient(circle at 1px 1px, rgba(242,234,219,0.06) 1px, transparent 0); }
-body.dark .nav-cta { background: var(--paper); color: var(--ink); border-color: var(--rule); }
-body.dark .nav-cta:hover { background: var(--accent); color: var(--paper); border-color: var(--accent); }
-body.dark .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
-body.dark .btn:hover { background: var(--accent); color: var(--paper); border-color: var(--accent); }
-body.dark .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
-body.dark .submit-btn { background: var(--accent); color: var(--paper); }
-body.dark .waitlist { background: #0F0C0A; }
-body.dark .wallet-btn, body.dark .wallet-adapter-button { background: var(--paper) !important; color: var(--ink) !important; border-color: var(--rule) !important; }
-body.dark .wallet-btn:hover, body.dark .wallet-adapter-button:hover { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--paper) !important; }
-body.dark .app-btn--primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
-body.dark .app-btn--primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+html.dark body::before { background-image: radial-gradient(circle at 1px 1px, rgba(242,234,219,0.06) 1px, transparent 0); }
+html.dark .nav-cta { background: var(--paper); color: var(--ink); border-color: var(--rule); }
+html.dark .nav-cta:hover { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+html.dark .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+html.dark .btn:hover { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+html.dark .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+html.dark .submit-btn { background: var(--accent); color: var(--paper); }
+html.dark .wallet-btn, html.dark .wallet-adapter-button { background: var(--paper) !important; color: var(--ink) !important; border-color: var(--rule) !important; }
+html.dark .wallet-btn:hover, html.dark .wallet-adapter-button:hover { background: var(--accent) !important; border-color: var(--accent) !important; color: var(--paper) !important; }
+html.dark .app-btn--primary { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+html.dark .app-btn--primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+html.dark .create-order-submit:not(:disabled) { border-color: rgba(239,68,68,0.55); box-shadow: -8px 0 20px rgba(239,68,68,0.25), 8px 0 20px rgba(239,68,68,0.25); }
+html.dark .create-order-submit:hover:not(:disabled) { background: #ef4444; border-color: #ef4444; color: #1a0a0a; box-shadow: -12px 0 28px rgba(239,68,68,0.45), 12px 0 28px rgba(239,68,68,0.45); }
+
+/* Waitlist: keep a dark slab with light type (global tokens invert on html.dark) */
+html.dark .waitlist {
+  background: #0F0C0A;
+  color: #EBE5D8;
+}
+html.dark .waitlist h2 { color: #F5EFE4; }
+html.dark .waitlist p { color: #B5A48C; }
+html.dark .waitlist .form-card {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--rule);
+}
+
+/* Hero seal disk — muted for dusk */
+html.dark .seal-card {
+  background: radial-gradient(ellipse at 30% 22%, #2E2820 0%, #221E18 52%, #15120F 100%);
+  border-color: rgba(242, 234, 219, 0.12);
+  box-shadow:
+    inset 0 0 50px rgba(0, 0, 0, 0.4),
+    0 24px 60px -28px rgba(0, 0, 0, 0.65);
+}
+html.dark .seal-meta { color: var(--ink-2); }
 
 /* Layout variant B: left-aligned with giant right-side type */
 body[data-hero="B"] .hero-grid { grid-template-columns: 1.1fr 0.9fr; }
@@ -629,11 +669,13 @@ body[data-hero="C"] .eyebrow { justify-content: center; display: flex; }
 .app-nav-link { font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); text-decoration: none; transition: color .15s; }
 .app-nav-link:hover, .app-nav-link--active { color: var(--accent); }
 .app-nav-wallet { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+.app-nav-actions { display: flex; align-items: center; gap: 0.75rem; }
 .app-nav-addr { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-mute); }
 
 /* Override wallet-adapter button to match landing .nav-cta pill style */
 .wallet-btn, .wallet-adapter-button { background: var(--ink) !important; color: var(--paper) !important; font-family: var(--mono) !important; font-size: 12px !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; border-radius: 999px !important; padding: 10px 16px !important; border: 1px solid var(--ink) !important; cursor: pointer; transition: background .15s ease, border-color .15s ease !important; }
 .wallet-btn:hover, .wallet-adapter-button:hover { background: var(--accent) !important; border-color: var(--accent) !important; opacity: 1 !important; }
+.wallet-btn--placeholder { width: 120px; height: 38px; visibility: hidden; pointer-events: none; }
 
 /* Wallet adapter modal overrides */
 .wallet-adapter-modal-wrapper { background: var(--paper) !important; border: 1px solid var(--rule) !important; border-radius: 18px !important; box-shadow: 0 40px 100px -30px rgba(26,20,16,0.35) !important; }
@@ -705,6 +747,14 @@ body[data-hero="C"] .eyebrow { justify-content: center; display: flex; }
 .tab-btn { flex: 1; padding: 9px 16px; border-radius: 999px; border: none; background: transparent; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-mute); cursor: pointer; transition: background .15s, color .15s; }
 .tab-btn--active { background: var(--ink); color: var(--paper); }
 .tab-btn:not(.tab-btn--active):hover { color: var(--ink); }
+.tab-btn--buy.tab-btn--active  { background: #16a34a; color: #fff; }
+.tab-btn--sell.tab-btn--active { background: #dc2626; color: #fff; }
+.tab-btn--buy:not(.tab-btn--active):hover  { color: #16a34a; }
+.tab-btn--sell:not(.tab-btn--active):hover { color: #dc2626; }
+html.dark .tab-btn--buy.tab-btn--active  { background: #22c55e; color: #0a1a0f; }
+html.dark .tab-btn--sell.tab-btn--active { background: #ef4444; color: #1a0a0a; }
+html.dark .tab-btn--buy:not(.tab-btn--active):hover  { color: #22c55e; }
+html.dark .tab-btn--sell:not(.tab-btn--active):hover { color: #ef4444; }
 
 /* ── Dashboard ───────────────────────────────────────────────────────────── */
 .balance-card { position: relative; overflow: hidden; border: 1px solid var(--rule); border-radius: var(--radius); padding: 2rem 1.5rem; background: var(--paper); }

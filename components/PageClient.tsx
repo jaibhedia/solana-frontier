@@ -29,13 +29,12 @@ export default function PageClient() {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
-  // apply accent + hero layout + dark mode
+  // apply accent + hero layout
   useEffect(() => {
     const root = document.documentElement;
     const map = ACCENT_MAP[tweaks.accent] ?? ACCENT_MAP.terracotta;
     Object.entries(map).forEach(([k, v]) => root.style.setProperty(k, v));
     document.body.dataset.hero = tweaks.heroLayout;
-    document.body.classList.toggle('dark', !!tweaks.dark);
   }, [tweaks]);
 
   const setTweak = <K extends keyof Tweaks>(key: K, value: Tweaks[K]) => {

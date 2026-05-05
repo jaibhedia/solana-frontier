@@ -2,19 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { formatAddress } from '@/lib/solana/utils';
+import dynamic from 'next/dynamic';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { WalletButton } from '@/components/WalletButton';
+
+// ssr: false — Admin link depends on wallet state; rendering it server-side causes hydration mismatch
+const AdminNavLink = dynamic(() => import('./AdminNavLink'), { ssr: false });
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/trade',     label: 'P2P Market' },
   { href: '/explorer',  label: 'Explorer' },
+  { href: '/tax',       label: 'Tax' },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { publicKey } = useWallet();
 
   return (
     <div className="app-shell">
@@ -36,13 +39,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {item.label}
               </Link>
             ))}
+            <AdminNavLink />
           </div>
 
           <div className="app-nav-wallet">
-            {publicKey ? (
-              <span className="app-nav-addr">{formatAddress(publicKey.toBase58())}</span>
-            ) : null}
-            <WalletMultiButton className="wallet-btn" />
+            <div className="app-nav-actions">
+              <ThemeToggle />
+              <WalletButton className="wallet-btn" />
+            </div>
           </div>
         </div>
       </nav>

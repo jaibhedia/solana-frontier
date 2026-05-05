@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { AnchorProvider } from '@coral-xyz/anchor';
 import type { AnchorWallet } from '@solana/wallet-adapter-react';
@@ -8,8 +9,7 @@ import { createHash } from 'crypto';
 import { createTrade } from '@/lib/solana/program';
 import { generateTradeId, txExplorerUrl } from '@/lib/solana/utils';
 import { getRate } from '@/lib/solana/oracle';
-import { UpiQrCode } from './UpiQrCode';
-import { CheckCircle, ExternalLink } from 'lucide-react';
+import { CheckCircle, Copy, Check, ExternalLink } from 'lucide-react';
 
 export function CreateOrder() {
   const { connection } = useConnection();
@@ -23,6 +23,7 @@ export function CreateOrder() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ txSig: string; tradeIdHex: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     getRate()
@@ -42,6 +43,17 @@ export function CreateOrder() {
   const handleInrChange = (val: string) => {
     setInrAmount(val);
     if (solInr) setSolAmount(((parseFloat(val) || 0) / solInr).toFixed(4));
+  };
+
+  const copyTradeUrl = async () => {
+    if (!done) return;
+    const base = `${typeof window !== 'undefined' ? window.location.origin : ''}/trade/${done.tradeIdHex}`;
+    const url = sellerVpa.trim() ? `${base}?vpa=${encodeURIComponent(sellerVpa.trim())}` : base;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch { /* ignore */ }
   };
 
   const handleSubmit = async () => {
@@ -71,6 +83,16 @@ export function CreateOrder() {
         isOpenOrder: true,
       });
 
+      // Stash seller VPA in Redis — awaited so buyer always gets the QR without asking seller
+      const vpaBody = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vpa: sellerVpa.trim() }) };
+      const postVpa = () => fetch(`/api/trades/${tradeIdHex}/vpa`, vpaBody);
+      let vpaOk = false;
+      try { vpaOk = (await postVpa()).ok; } catch { /* ignore */ }
+      if (!vpaOk) {
+        await new Promise<void>(r => setTimeout(r, 1000));
+        try { await postVpa(); } catch { /* ignore */ }
+      }
+
       setDone({ txSig, tradeIdHex });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -88,6 +110,9 @@ export function CreateOrder() {
   }
 
   if (done) {
+    const tradePath = sellerVpa.trim()
+      ? `/trade/${done.tradeIdHex}?vpa=${encodeURIComponent(sellerVpa.trim())}`
+      : `/trade/${done.tradeIdHex}`;
     return (
       <div className="create-success">
         <div className="app-success-banner">
@@ -103,20 +128,24 @@ export function CreateOrder() {
           </div>
         </div>
 
-        <UpiQrCode
-          sellerVpa={sellerVpa}
-          inrAmountRupees={(parseFloat(inrAmount) || 0).toFixed(2)}
-          tradeId={done.tradeIdHex}
-        />
-
-        <p className="create-success-note">
-          Share this QR with the buyer. Once they pay and the oracle verifies,
-          SOL is auto-released from the escrow vault.
+        <p className="create-success-note" style={{ textAlign: 'left', maxWidth: 520, margin: '0 auto' }}>
+          Your UPI VPA is embedded in the trade link. Share it with the buyer — they&apos;ll see your QR instantly and
+          can pay and verify with Setu in one flow.
         </p>
 
-        <div className="trade-id-box">{done.tradeIdHex}</div>
+        <div className="trade-id-box" style={{ marginTop: 16 }}>{done.tradeIdHex}</div>
 
-        <button onClick={() => setDone(null)} className="app-btn app-btn--ghost app-btn--full">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', justifyContent: 'center' }}>
+          <button type="button" onClick={copyTradeUrl} className="app-btn app-btn--ghost">
+            {linkCopied ? <Check size={14} /> : <Copy size={14} />}
+            {linkCopied ? 'Copied' : 'Copy trade link'}
+          </button>
+          <Link href={tradePath} className="app-btn app-btn--primary">
+            View your listing
+          </Link>
+        </div>
+
+        <button onClick={() => setDone(null)} className="app-btn app-btn--ghost app-btn--full" style={{ marginTop: '1rem' }}>
           List another order
         </button>
       </div>
@@ -164,7 +193,7 @@ export function CreateOrder() {
             onChange={(e) => setSellerVpa(e.target.value)}
             placeholder="yourname@hdfc"
           />
-          <p className="form-hint">Buyer pays INR directly to this VPA</p>
+          <p className="form-hint">Hashed on-chain; tell the buyer this exact id so their payment matches the listing</p>
         </div>
         <div className="form-field">
           <label className="form-label">Order timeout</label>
@@ -191,7 +220,7 @@ export function CreateOrder() {
       <button
         onClick={handleSubmit}
         disabled={pending}
-        className="app-btn app-btn--primary app-btn--full"
+        className="app-btn app-btn--primary app-btn--full create-order-submit"
       >
         {pending
           ? 'Signing & submitting…'
