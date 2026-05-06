@@ -4,6 +4,7 @@ const webpack = require('webpack');
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['tweetnacl', 'bs58'],
+  turbopack: {},
 
   webpack(config) {
     // pino-pretty is an optional dep of pino (used by WalletConnect) — not needed in browser
