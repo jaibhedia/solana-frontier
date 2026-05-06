@@ -1,5 +1,6 @@
 {
   "framework": "nextjs",
+  "outputDirectory": ".next",
   "functions": {
     "app/api/setu/consent/route.ts": { "maxDuration": 30 },
     "app/api/setu/status/route.ts":  { "maxDuration": 30 },
