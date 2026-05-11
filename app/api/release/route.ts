@@ -3,6 +3,7 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  SystemProgram,
   Transaction,
   Ed25519Program,
   LAMPORTS_PER_SOL,
@@ -38,6 +39,16 @@ function loadOracleKeypair(): Keypair {
   if (!b58) throw new Error('ORACLE_SECRET_KEY not set');
   const sk = bs58.decode(b58);
   if (sk.length !== 64) throw new Error('ORACLE_SECRET_KEY must be a 64-byte Solana keypair (base58)');
+  return Keypair.fromSecretKey(sk);
+}
+
+// Optional separate fee payer — useful when oracle key has no SOL on devnet.
+// If FEE_PAYER_SECRET_KEY is not set, the oracle keypair pays fees.
+function loadFeePayerKeypair(): Keypair | null {
+  const b58 = (process.env.FEE_PAYER_SECRET_KEY ?? '').trim();
+  if (!b58) return null;
+  const sk = bs58.decode(b58);
+  if (sk.length !== 64) throw new Error('FEE_PAYER_SECRET_KEY must be a 64-byte Solana keypair (base58)');
   return Keypair.fromSecretKey(sk);
 }
 
@@ -101,33 +112,53 @@ export async function POST(req: NextRequest) {
     });
 
     const oracleKp = loadOracleKeypair();
+    const feePayerKp = loadFeePayerKeypair() ?? oracleKp;
     const [tradePda] = findTradePda(tradeIdBytes);
     const [vaultPda] = findVaultPda(tradeIdBytes);
     const [oracleConfigPda] = findOracleConfigPda();
     const [attRecordPda] = findAttestationRecordPda(tradeIdBytes);
     const buyerPubkey = new PublicKey(trade.buyer);
 
-    const programIx = releaseWithAttestationIx(
-      oracleKp.publicKey, tradePda, vaultPda, buyerPubkey, attRecordPda, oracleConfigPda,
-      0, attestation,
-    );
-
-    // Fund oracle on devnet if needed — it's the fee payer and must have SOL
-    const oracleBalance = await connection.getBalance(oracleKp.publicKey);
-    if (oracleBalance < 0.05 * LAMPORTS_PER_SOL) {
-      try {
-        const airdropSig = await connection.requestAirdrop(oracleKp.publicKey, LAMPORTS_PER_SOL);
-        await connection.confirmTransaction(airdropSig, 'confirmed');
-      } catch (e) {
-        console.warn('[release] airdrop failed (balance may still be ok):', (e as Error).message);
-      }
+    const ORACLE_MIN_LAMPORTS = 5_000_000; // 0.005 SOL — att record rent (~1.18M) + oracle own rent-exempt (~0.89M) + buffer
+    const MIN_FEE_LAMPORTS = Math.round(0.01 * LAMPORTS_PER_SOL);
+    const [oracleBalance, feePayerBalance] = await Promise.all([
+      connection.getBalance(oracleKp.publicKey),
+      connection.getBalance(feePayerKp.publicKey),
+    ]);
+    if (feePayerBalance < MIN_FEE_LAMPORTS) {
+      throw new Error(
+        `Fee payer ${feePayerKp.publicKey.toBase58()} has insufficient SOL (${feePayerBalance} lamports). ` +
+        `Send devnet SOL to this address via https://faucet.solana.com`,
+      );
     }
 
-    const tx = new Transaction().add(ed25519Ix).add(programIx);
+    // Ed25519 ix index shifts by 1 if we prepend a top-up transfer
+    const needsTopUp = oracleBalance < ORACLE_MIN_LAMPORTS;
+    const programIx = releaseWithAttestationIx(
+      oracleKp.publicKey, tradePda, vaultPda, buyerPubkey, attRecordPda, oracleConfigPda,
+      needsTopUp ? 1 : 0, attestation,
+    );
+
+    // If oracle has no SOL it can't pay rent for AttestationRecord PDA creation.
+    // Prepend a transfer from fee payer so the oracle is funded before the program CPI fires.
+    const txIxs = [];
+    if (needsTopUp) {
+      txIxs.push(
+        SystemProgram.transfer({
+          fromPubkey: feePayerKp.publicKey,
+          toPubkey:   oracleKp.publicKey,
+          lamports:   ORACLE_MIN_LAMPORTS - oracleBalance,
+        }),
+      );
+    }
+    txIxs.push(ed25519Ix, programIx);
+    const tx = new Transaction().add(...txIxs);
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
     tx.recentBlockhash = blockhash;
-    tx.feePayer = oracleKp.publicKey;
-    tx.sign(oracleKp);
+    tx.feePayer = feePayerKp.publicKey;
+    // Sign with both oracle (program requires it) and fee payer (if different)
+    const signers = feePayerKp === oracleKp ? [oracleKp] : [feePayerKp, oracleKp];
+    tx.sign(...signers);
 
     const signature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
     await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');

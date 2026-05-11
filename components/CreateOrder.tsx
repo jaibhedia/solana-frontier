@@ -9,7 +9,7 @@ import { createHash } from 'crypto';
 import { createTrade } from '@/lib/solana/program';
 import { generateTradeId, txExplorerUrl } from '@/lib/solana/utils';
 import { getRate } from '@/lib/solana/oracle';
-import { CheckCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { CheckCircle, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 
 export function CreateOrder() {
   const { connection } = useConnection();
@@ -222,6 +222,7 @@ export function CreateOrder() {
         disabled={pending}
         className="app-btn app-btn--primary app-btn--full create-order-submit"
       >
+        {pending && <Loader2 size={14} className="spin" />}
         {pending
           ? 'Signing & submitting…'
           : `Sell ${parseFloat(solAmount).toFixed(4)} SOL for ₹${parseFloat(inrAmount).toLocaleString('en-IN')}`}

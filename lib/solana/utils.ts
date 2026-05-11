@@ -42,6 +42,11 @@ export function sha256(input: Buffer | Uint8Array): Buffer {
   return createHash('sha256').update(input).digest();
 }
 
+function writeU64BE(buf: Buffer, val: bigint, off: number): void {
+  buf.writeUInt32BE(Number((val >> 32n) & 0xffffffffn), off);
+  buf.writeUInt32BE(Number(val & 0xffffffffn), off + 4);
+}
+
 // Layout: trade_id(32) + inr_amount(8BE) + payer_hash(32) + payee_hash(32) + timestamp(8BE) + expires_at(8BE) + evidence_hash(32) + risk_score(8BE) = 160 bytes
 export function buildAttestationMessage(
   tradeId: Uint8Array,
@@ -50,13 +55,13 @@ export function buildAttestationMessage(
   const buf = Buffer.alloc(160);
   let off = 0;
   Buffer.from(tradeId).copy(buf, off);          off += 32;
-  buf.writeBigUInt64BE(p.inrAmount, off);        off += 8;
+  writeU64BE(buf, p.inrAmount, off);             off += 8;
   Buffer.from(p.payerHash).copy(buf, off);       off += 32;
   Buffer.from(p.payeeHash).copy(buf, off);       off += 32;
-  buf.writeBigUInt64BE(p.timestamp, off);        off += 8;
-  buf.writeBigUInt64BE(p.expiresAt, off);        off += 8;
+  writeU64BE(buf, p.timestamp, off);             off += 8;
+  writeU64BE(buf, p.expiresAt, off);             off += 8;
   Buffer.from(p.evidenceHash).copy(buf, off);    off += 32;
-  buf.writeBigUInt64BE(BigInt(p.riskScore), off);
+  writeU64BE(buf, BigInt(p.riskScore), off);
   return buf;
 }
 

@@ -43,10 +43,15 @@ function writeU8(buf: Buffer, off: number, val: number): number {
   buf.writeUInt8(val, off); return off + 1;
 }
 function writeU64LE(buf: Buffer, off: number, val: bigint): number {
-  buf.writeBigUInt64LE(val, off); return off + 8;
+  buf.writeUInt32LE(Number(val & 0xffffffffn), off);
+  buf.writeUInt32LE(Number((val >> 32n) & 0xffffffffn), off + 4);
+  return off + 8;
 }
 function writeI64LE(buf: Buffer, off: number, val: bigint): number {
-  buf.writeBigInt64LE(val, off); return off + 8;
+  const u = val < 0n ? val + (1n << 64n) : val;
+  buf.writeUInt32LE(Number(u & 0xffffffffn), off);
+  buf.writeUInt32LE(Number((u >> 32n) & 0xffffffffn), off + 4);
+  return off + 8;
 }
 function writeBool(buf: Buffer, off: number, val: boolean): number {
   buf.writeUInt8(val ? 1 : 0, off); return off + 1;
@@ -208,10 +213,15 @@ function readU8(buf: Buffer, off: number): [number, number] {
   return [buf.readUInt8(off), off + 1];
 }
 function readU64LE(buf: Buffer, off: number): [bigint, number] {
-  return [buf.readBigUInt64LE(off), off + 8];
+  const lo = BigInt(buf.readUInt32LE(off));
+  const hi = BigInt(buf.readUInt32LE(off + 4));
+  return [(hi << 32n) | lo, off + 8];
 }
 function readI64LE(buf: Buffer, off: number): [bigint, number] {
-  return [buf.readBigInt64LE(off), off + 8];
+  const lo = BigInt(buf.readUInt32LE(off));
+  const hi = BigInt(buf.readUInt32LE(off + 4));
+  const u = (hi << 32n) | lo;
+  return [u >= (1n << 63n) ? u - (1n << 64n) : u, off + 8];
 }
 
 function deserializeTrade(data: Buffer): SolanaTradeInfo {

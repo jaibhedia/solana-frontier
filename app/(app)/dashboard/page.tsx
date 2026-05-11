@@ -114,9 +114,9 @@ export default function DashboardPage() {
         <section>
           <p className="section-label">My Trades</p>
           {tradesLoading ? (
-            <div className="app-loading" style={{ padding: '1rem 0' }}>Loading your trades…</div>
+            <div className="app-loading">Loading your trades…</div>
           ) : myTrades.length === 0 ? (
-            <div className="app-empty" style={{ padding: '1.5rem', border: '1px solid var(--rule)', borderRadius: 10 }}>
+            <div className="app-empty app-card">
               No trades yet.{' '}
               <Link href="/trade" className="app-link">Create your first order →</Link>
             </div>

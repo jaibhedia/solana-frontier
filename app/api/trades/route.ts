@@ -8,6 +8,16 @@ export const revalidate = 0;
 
 const PROGRAM_ID = new PublicKey(PROGRAM_ID_STR);
 
+function readU64LE(buf: Buffer, off: number): bigint {
+  const lo = BigInt(buf.readUInt32LE(off));
+  const hi = BigInt(buf.readUInt32LE(off + 4));
+  return (hi << 32n) | lo;
+}
+function readI64LE(buf: Buffer, off: number): bigint {
+  const u = readU64LE(buf, off);
+  return u >= (1n << 63n) ? u - (1n << 64n) : u;
+}
+
 // Trade layout (after 8-byte discriminator):
 // trade_id:        [u8;32]   @ 8
 // seller:          Pubkey    @ 40
@@ -26,12 +36,12 @@ function decodeTrade(pubkey: string, data: Buffer) {
   const tradeId    = data.slice(8, 40).toString('hex');
   const seller     = new PublicKey(data.slice(40, 72)).toBase58();
   const buyer      = new PublicKey(data.slice(72, 104)).toBase58();
-  const lamports   = data.readBigUInt64LE(104);
-  const inrAmount  = data.readBigUInt64LE(112);
-  const deadline   = data.readBigInt64LE(152);
+  const lamports   = readU64LE(data, 104);
+  const inrAmount  = readU64LE(data, 112);
+  const deadline   = readI64LE(data, 152);
   const status     = data[160];
-  const createdAt  = data.readBigInt64LE(163);
-  const releasedAt = data.readBigInt64LE(171);
+  const createdAt  = readI64LE(data, 163);
+  const releasedAt = readI64LE(data, 171);
   return {
     pubkey,
     tradeId,

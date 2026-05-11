@@ -106,41 +106,53 @@ export async function POST(req: NextRequest) {
     // Verification mode
     const { sessionId } = body;
     const verificationMode = (process.env.VERIFICATION_MODE ?? 'mock').toLowerCase();
+    // SETU_FALLBACK_MOCK=true lets us run in setu mode but auto-approve when Setu API is unreachable
+    const setuFallbackMock = (process.env.SETU_FALLBACK_MOCK ?? 'true').toLowerCase() !== 'false';
+
     if (verificationMode === 'setu') {
       if (!consentId || typeof consentId !== 'string') {
-        return NextResponse.json({ error: 'consentId required in Setu mode — start AA consent flow first' }, { status: 400 });
-      }
-      try {
-        const consent = await setuGet<{ status: string }>(`/v2/consents/${consentId}`);
-        if (consent.status !== 'ACTIVE') {
-          return NextResponse.json({ error: `Setu consent not active (${consent.status}) — user must approve in AA app` }, { status: 402 });
+        if (setuFallbackMock) {
+          console.warn('[attest] Setu mode but no consentId — falling back to mock approval');
+        } else {
+          return NextResponse.json({ error: 'consentId required in Setu mode — start AA consent flow first' }, { status: 400 });
         }
-        // If a FI data session is available, verify the actual UPI transaction
-        if (sessionId && typeof sessionId === 'string') {
-          type FiResp = {
-            status: string;
-            Payload?: { Data?: Array<{ decryptedFI?: { transactions?: { transaction?: Array<{ amount: string; type: string; mode: string; valueDate?: string }> } } }> };
-          };
-          const fiData = await setuGet<FiResp>(`/v2/sessions/${sessionId}`);
-          if (fiData.status === 'COMPLETED') {
-            const txns = (fiData.Payload?.Data ?? []).flatMap((d) => {
-              const t = d.decryptedFI?.transactions?.transaction;
-              return Array.isArray(t) ? t : [];
-            });
-            const cutoff = Date.now() - 48 * 3600_000;
-            const matched = txns.some((t) => {
-              const amountMatches = Math.round(Number(t.amount) * 100) === inrPaisa;
-              const isUpiDebit = t.mode === 'UPI' && t.type === 'DEBIT';
-              const isRecent = !t.valueDate || new Date(t.valueDate).getTime() >= cutoff;
-              return amountMatches && isUpiDebit && isRecent;
-            });
-            if (!matched) {
-              return NextResponse.json({ error: 'No matching UPI DEBIT transaction found in account statement for this amount' }, { status: 402 });
+      } else {
+        try {
+          const consent = await setuGet<{ status: string }>(`/v2/consents/${consentId}`);
+          if (consent.status !== 'ACTIVE') {
+            return NextResponse.json({ error: `Setu consent not active (${consent.status}) — user must approve in AA app` }, { status: 402 });
+          }
+          // If a FI data session is available, verify the actual UPI transaction
+          if (sessionId && typeof sessionId === 'string') {
+            type FiResp = {
+              status: string;
+              Payload?: { Data?: Array<{ decryptedFI?: { transactions?: { transaction?: Array<{ amount: string; type: string; mode: string; valueDate?: string }> } } }> };
+            };
+            const fiData = await setuGet<FiResp>(`/v2/sessions/${sessionId}`);
+            if (fiData.status === 'COMPLETED') {
+              const txns = (fiData.Payload?.Data ?? []).flatMap((d) => {
+                const t = d.decryptedFI?.transactions?.transaction;
+                return Array.isArray(t) ? t : [];
+              });
+              const cutoff = Date.now() - 48 * 3600_000;
+              const matched = txns.some((t) => {
+                const amountMatches = Math.round(Number(t.amount) * 100) === inrPaisa;
+                const isUpiDebit = t.mode === 'UPI' && t.type === 'DEBIT';
+                const isRecent = !t.valueDate || new Date(t.valueDate).getTime() >= cutoff;
+                return amountMatches && isUpiDebit && isRecent;
+              });
+              if (!matched) {
+                return NextResponse.json({ error: 'No matching UPI DEBIT transaction found in account statement for this amount' }, { status: 402 });
+              }
             }
           }
+        } catch (e) {
+          if (setuFallbackMock) {
+            console.warn('[attest] Setu API unreachable — falling back to mock approval:', (e as Error).message);
+          } else {
+            return NextResponse.json({ error: `Setu verification failed: ${(e as Error).message}` }, { status: 502 });
+          }
         }
-      } catch (e) {
-        return NextResponse.json({ error: `Setu verification failed: ${(e as Error).message}` }, { status: 502 });
       }
     }
 

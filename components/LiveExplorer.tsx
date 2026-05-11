@@ -35,6 +35,7 @@ const STATUS_CLS: Record<string, string> = {
 export default function LiveExplorer() {
   const [trades, setTrades]     = useState<OnChainTrade[]>([]);
   const [stats, setStats]       = useState<Stats>({ totalTrades: 0, totalVolSol: '0' });
+  const [rate, setRate]         = useState({ inrPerSol: 8250, inrPerUsd: 84 });
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState<number | 'all'>('all');
 
@@ -42,15 +43,18 @@ export default function LiveExplorer() {
     let cancelled = false;
     async function load() {
       try {
-        const [tradesRes, statsRes] = await Promise.all([
+        const [tradesRes, statsRes, rateRes] = await Promise.all([
           fetch('/api/trades'),
           fetch('/api/stats'),
+          fetch('/api/rate'),
         ]);
         const tradesData = await tradesRes.json();
         const statsData  = await statsRes.json();
+        const rateData   = await rateRes.json();
         if (!cancelled) {
           setTrades(tradesData.trades ?? []);
           setStats({ totalTrades: statsData.totalTrades ?? 0, totalVolSol: statsData.totalVolSol ?? '0' });
+          setRate({ inrPerSol: rateData.inrPerSol ?? 8250, inrPerUsd: rateData.inrPerUsd ?? 84 });
         }
       } catch {
         /* silent */
@@ -67,7 +71,7 @@ export default function LiveExplorer() {
     ? trades
     : trades.filter(t => t.status === filter);
 
-  const solUsd = parseFloat(stats.totalVolSol) * 142;
+  const solUsd = parseFloat(stats.totalVolSol) * (rate.inrPerSol / rate.inrPerUsd);
 
   return (
     <section className="section" id="explorer">

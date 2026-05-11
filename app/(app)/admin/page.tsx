@@ -75,8 +75,8 @@ export default function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="app-card app-empty">
-        <p style={{ color: 'var(--danger, #c0392b)' }}>Unauthorized — connect wallet <code>{ADMIN_PUBKEY.slice(0, 8)}…</code></p>
-        <Link href="/dashboard" className="app-link" style={{ marginTop: '0.75rem', display: 'inline-block' }}>← Dashboard</Link>
+        <p className="text-danger">Unauthorized — admin access only</p>
+        <Link href="/dashboard" className="app-link mt-3" style={{ display: 'inline-block' }}>← Dashboard</Link>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export default function AdminPage() {
     <div className="page-stack">
       <div>
         <Link href="/dashboard" className="app-back-link">← Dashboard</Link>
-        <h1 className="page-title" style={{ marginTop: '0.5rem' }}>Admin · Dispute Resolution</h1>
+        <h1 className="page-title mt-2">Admin · Dispute Resolution</h1>
         <p className="page-sub">Resolve disputed trades by releasing SOL to the buyer or refunding the seller.</p>
       </div>
 
@@ -110,17 +110,17 @@ export default function AdminPage() {
       ) : (
         trades.map(trade => (
           <div key={trade.tradeId} className="app-card">
-            <p className="mono-sm" style={{ marginBottom: '0.75rem', color: 'var(--ink-mute)' }}>
+            <p className="mono-sm mb-3">
               {trade.tradeId.slice(0, 24)}…
             </p>
-            <dl className="trade-detail-dl" style={{ marginBottom: '1rem' }}>
+            <dl className="trade-detail-dl mb-4">
               <div className="trade-detail-row"><dt>SOL</dt><dd>{lamportsToSol(BigInt(trade.lamports))} SOL</dd></div>
               <div className="trade-detail-row"><dt>INR</dt><dd className="accent">₹{paisaToInr(BigInt(trade.inrAmount))}</dd></div>
               <div className="trade-detail-row"><dt>Seller</dt><dd className="mono-sm">{trade.seller.slice(0, 20)}…</dd></div>
               <div className="trade-detail-row"><dt>Buyer</dt><dd className="mono-sm">{trade.buyer.slice(0, 20)}…</dd></div>
               <div className="trade-detail-row"><dt>Created</dt><dd>{new Date(trade.createdAt * 1000).toLocaleString()}</dd></div>
             </dl>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="seller-share-row">
               <button
                 onClick={() => resolve(trade, true)}
                 disabled={resolving === trade.tradeId}

@@ -8,6 +8,12 @@ export const revalidate = 0;
 
 const PROGRAM_ID = new PublicKey(PROGRAM_ID_STR);
 
+function readU64LE(buf: Buffer, off: number): bigint {
+  const lo = BigInt(buf.readUInt32LE(off));
+  const hi = BigInt(buf.readUInt32LE(off + 4));
+  return (hi << 32n) | lo;
+}
+
 function findOracleConfigPda(): PublicKey {
   return PublicKey.findProgramAddressSync([Buffer.from('oracle-config')], PROGRAM_ID)[0];
 }
@@ -16,8 +22,8 @@ function findOracleConfigPda(): PublicKey {
 // admin: 32 | oracle_pubkey: 32 | total_trades: u64 LE | total_vol_lamports: u64 LE | bump: 1
 function decodeOracleConfig(data: Buffer) {
   if (data.length < 89) throw new Error(`OracleConfig account too short: ${data.length} bytes`);
-  const totalTrades      = data.readBigUInt64LE(72);
-  const totalVolLamports = data.readBigUInt64LE(80);
+  const totalTrades      = readU64LE(data, 72);
+  const totalVolLamports = readU64LE(data, 80);
   return { totalTrades, totalVolLamports };
 }
 

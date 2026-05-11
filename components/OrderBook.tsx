@@ -57,15 +57,15 @@ export function OrderBook({ onMatch }: OrderBookProps) {
         </p>
         <button
           onClick={loadOrders}
-          className="app-btn app-btn--ghost"
-          style={{ marginTop: '0.5rem', padding: '4px 10px', fontSize: '0.78rem' }}
+          className="app-btn app-btn--ghost app-btn--sm mt-2"
+          aria-label="Refresh order book"
         >↻ Refresh</button>
       </div>
 
       {orders.length === 0 ? (
-        <div className="app-empty" style={{ padding: '2rem 0' }}>
+        <div className="app-empty">
           No open orders on Solana Devnet yet.{' '}
-          <span style={{ color: 'var(--accent)' }}>Switch to &ldquo;Sell SOL&rdquo; to create one.</span>
+          <span className="accent">Switch to &ldquo;Sell SOL&rdquo; to create one.</span>
         </div>
       ) : (
         <div className="order-book-list">

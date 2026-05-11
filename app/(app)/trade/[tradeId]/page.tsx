@@ -7,7 +7,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { AnchorProvider } from '@coral-xyz/anchor';
 import type { AnchorWallet } from '@solana/wallet-adapter-react';
 import { createHash } from 'crypto';
-import { getTrade, cancelExpiredTrade, raiseDispute } from '@/lib/solana/program';
+import { getTrade, findTradePda, cancelExpiredTrade, raiseDispute } from '@/lib/solana/program';
 import { lamportsToSol, paisaToInr, txExplorerUrl } from '@/lib/solana/utils';
 import { TRADE_STATUS, ZERO_PUBKEY } from '@/lib/constants';
 import { UpiQrCode } from '@/components/UpiQrCode';
@@ -37,6 +37,8 @@ export default function TradeDetailPage() {
   const [sellerVpa, setSellerVpa] = useState(searchParams.get('vpa') ?? '');
   const [releasing, setReleasing] = useState(false);
   const [releaseTx, setReleaseTx] = useState('');
+  const [cancelTx, setCancelTx] = useState('');
+  const [disputeTx, setDisputeTx] = useState('');
   const [disputing, setDisputing] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,6 +61,37 @@ export default function TradeDetailPage() {
   };
 
   useEffect(() => { refreshTrade(); }, [tradeIdHex, connection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When trade is already Released and we don't have the tx sig in state, fetch it from chain
+  useEffect(() => {
+    if (trade?.status !== 2 || releaseTx || !tradeIdBytes) return;
+    try {
+      const [tradePda] = findTradePda(tradeIdBytes);
+      connection.getSignaturesForAddress(tradePda, { limit: 5 })
+        .then(sigs => { if (sigs.length > 0) setReleaseTx(sigs[0].signature); })
+        .catch(() => {});
+    } catch {}
+  }, [trade?.status, releaseTx, tradeIdHex, connection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (trade?.status !== 4 || cancelTx || !tradeIdBytes) return;
+    try {
+      const [tradePda] = findTradePda(tradeIdBytes);
+      connection.getSignaturesForAddress(tradePda, { limit: 5 })
+        .then(sigs => { if (sigs.length > 0) setCancelTx(sigs[0].signature); })
+        .catch(() => {});
+    } catch {}
+  }, [trade?.status, cancelTx, tradeIdHex, connection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (trade?.status !== 3 || disputeTx || !tradeIdBytes) return;
+    try {
+      const [tradePda] = findTradePda(tradeIdBytes);
+      connection.getSignaturesForAddress(tradePda, { limit: 5 })
+        .then(sigs => { if (sigs.length > 0) setDisputeTx(sigs[0].signature); })
+        .catch(() => {});
+    } catch {}
+  }, [trade?.status, disputeTx, tradeIdHex, connection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusLabel = trade ? (TRADE_STATUS[trade.status] ?? 'Unknown') : '—';
   const isActive    = trade?.status === 1;
@@ -279,7 +312,8 @@ export default function TradeDetailPage() {
     setError('');
     try {
       const provider = new AnchorProvider(connection, wallet as AnchorWallet, { commitment: 'confirmed' });
-      await cancelExpiredTrade(provider, { tradeId: tradeIdBytes, seller: trade.seller });
+      const sig = await cancelExpiredTrade(provider, { tradeId: tradeIdBytes, seller: trade.seller });
+      if (sig) setCancelTx(sig);
       setTimeout(refreshTrade, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -292,7 +326,8 @@ export default function TradeDetailPage() {
     setDisputing(true);
     try {
       const provider = new AnchorProvider(connection, wallet as AnchorWallet, { commitment: 'confirmed' });
-      await raiseDispute(provider, { tradeId: tradeIdBytes });
+      const sig = await raiseDispute(provider, { tradeId: tradeIdBytes });
+      if (sig) setDisputeTx(sig);
       setTimeout(refreshTrade, 3000);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -318,8 +353,8 @@ export default function TradeDetailPage() {
     <div className="page-stack">
       <div>
         <Link href="/trade" className="app-back-link">← P2P Market</Link>
-        <h1 className="page-title" style={{ marginTop: '0.5rem' }}>Trade Details</h1>
-        <p className="mono-sm" style={{ marginTop: '0.25rem' }}>{tradeIdHex.slice(0, 20)}…</p>
+        <h1 className="page-title mt-2">Trade Details</h1>
+        <p className="mono-sm mt-1">{tradeIdHex.slice(0, 20)}…</p>
       </div>
 
       {/* Trade info */}
@@ -353,41 +388,69 @@ export default function TradeDetailPage() {
               </dd>
             </div>
           )}
+          {(trade?.status === 2 || releaseTx) && (
+            <div className="trade-detail-row">
+              <dt>Release Tx</dt>
+              <dd>
+                {releaseTx ? (
+                  <a href={txExplorerUrl(releaseTx)} target="_blank" rel="noopener noreferrer" className="app-tx-link">
+                    {releaseTx.slice(0, 12)}…{releaseTx.slice(-6)} <ExternalLink size={11} />
+                  </a>
+                ) : (
+                  <span className="mono-sm" style={{ opacity: 0.5 }}>fetching…</span>
+                )}
+              </dd>
+            </div>
+          )}
+          {cancelTx && (
+            <div className="trade-detail-row">
+              <dt>Cancel Tx</dt>
+              <dd>
+                <a href={txExplorerUrl(cancelTx)} target="_blank" rel="noopener noreferrer" className="app-tx-link">
+                  {cancelTx.slice(0, 12)}…{cancelTx.slice(-6)} <ExternalLink size={11} />
+                </a>
+              </dd>
+            </div>
+          )}
+          {disputeTx && (
+            <div className="trade-detail-row">
+              <dt>Dispute Tx</dt>
+              <dd>
+                <a href={txExplorerUrl(disputeTx)} target="_blank" rel="noopener noreferrer" className="app-tx-link">
+                  {disputeTx.slice(0, 12)}…{disputeTx.slice(-6)} <ExternalLink size={11} />
+                </a>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 
       {/* Buyer: QR → mobile → Setu → SOL */}
       {isActive && isBuyer && (
         <div className="app-card" ref={setuSectionRef}>
-          <h3 className="card-title accent" style={{ marginBottom: '1.25rem' }}>Pay · verify · receive SOL</h3>
+          <h3 className="card-title accent mb-5">Pay · verify · receive SOL</h3>
 
           {/* Seller UPI + QR */}
           {trimmedPayeeVpa ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--ink-mute)', margin: 0 }}>Pay to</p>
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--ink)', margin: 0, wordBreak: 'break-all', textAlign: 'center' }}>
-                {trimmedPayeeVpa}
-              </p>
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 36, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>
-                ₹{paisaToInr(trade.inrAmount)}
-              </p>
+            <div className="upi-pay-header">
+              <p className="upi-pay-label">Pay to</p>
+              <p className="upi-pay-vpa">{trimmedPayeeVpa}</p>
+              <p className="upi-pay-amount">₹{paisaToInr(trade.inrAmount)}</p>
               <UpiQrCode
                 sellerVpa={trimmedPayeeVpa}
                 inrAmountRupees={(Number(trade.inrAmount) / 100).toFixed(2)}
                 tradeId={tradeIdHex}
               />
               {payeeVpaMismatch && (
-                <p className="form-hint" style={{ color: 'var(--danger, #c0392b)', textAlign: 'center' }}>
+                <p className="form-hint upi-pay-mismatch">
                   ⚠ VPA doesn&apos;t match on-chain hash — contact the seller
                 </p>
               )}
             </div>
           ) : (
-            <div style={{ marginBottom: '1.5rem', padding: '1.25rem', border: '1px dashed var(--rule)', borderRadius: 12, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: 'var(--accent)' }} />
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--ink-mute)', margin: 0 }}>
-                Fetching seller payment details…
-              </p>
+            <div className="vpa-wait-box">
+              <Loader2 size={16} className="spin status-box-spin" />
+              <p>Fetching seller payment details…</p>
             </div>
           )}
 
@@ -403,25 +466,23 @@ export default function TradeDetailPage() {
               </div>
             </div>
           ) : releasing || setuStep === 'approved' ? (
-            <div style={{ padding: '1rem', border: '1px solid var(--rule)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: 'var(--accent)' }} />
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--ink-mute)', margin: 0 }}>
-                {setuStep === 'approved' ? 'Setu verified — releasing SOL…' : 'Releasing SOL to your wallet…'}
-              </p>
+            <div className="status-box">
+              <Loader2 size={16} className="spin status-box-spin" />
+              <p>{setuStep === 'approved' ? 'Setu verified — releasing SOL…' : 'Releasing SOL to your wallet…'}</p>
             </div>
           ) : setuStep === 'waiting' ? (
-            <div style={{ padding: '1rem', border: '1px solid var(--rule)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: 'var(--accent)' }} />
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--ink-mute)', margin: 0 }}>Waiting — approve consent in your bank&apos;s AA app…</p>
+            <div className="status-box">
+              <Loader2 size={16} className="spin status-box-spin" />
+              <p>Waiting — approve consent in your bank&apos;s AA app…</p>
             </div>
           ) : setuStep === 'creating' ? (
-            <div style={{ padding: '1rem', border: '1px solid var(--rule)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Loader2 size={16} className="spin" style={{ flexShrink: 0, color: 'var(--accent)' }} />
-              <p style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--ink-mute)', margin: 0 }}>Opening Setu…</p>
+            <div className="status-box">
+              <Loader2 size={16} className="spin status-box-spin" />
+              <p>Opening Setu…</p>
             </div>
           ) : verificationMode === 'mock' ? (
             <>
-              {error && <p className="app-error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
+              {error && <p className="app-error mb-3">{error}</p>}
               <button
                 onClick={() => {
                   setReleasing(true); setError('');
@@ -446,12 +507,12 @@ export default function TradeDetailPage() {
                 />
                 <p className="form-hint">Setu verifies the UPI debit from your bank account · test: 9999999999</p>
               </div>
-              {error && <p className="app-error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
+              {error && <p className="app-error mb-3">{error}</p>}
               <button onClick={startSetuConsent} disabled={buyerPhone.length !== 10} className="app-btn app-btn--primary app-btn--full">
                 Verify with Setu →
               </button>
               {setuStep === 'error' && (
-                <button onClick={() => { setSetuStep('idle'); setError(''); }} className="app-btn app-btn--ghost app-btn--full" style={{ marginTop: '0.5rem' }}>
+                <button onClick={() => { setSetuStep('idle'); setError(''); }} className="app-btn app-btn--ghost app-btn--full mt-2">
                   Try again
                 </button>
               )}
@@ -464,11 +525,11 @@ export default function TradeDetailPage() {
       {isActive && isSeller && (
         <div className="app-card">
           <h3 className="card-title accent">Listing live — waiting for buyer</h3>
-          <p className="page-sub" style={{ marginTop: '0.5rem', maxWidth: 'none' }}>
+          <p className="page-sub mt-2" style={{ maxWidth: 'none' }}>
             SOL is locked in escrow. Share this trade link (with your UPI embedded) — buyer sees your QR instantly
             and can pay + verify via Setu in one flow.
           </p>
-          <div className="form-field" style={{ marginTop: '1rem', marginBottom: '0.75rem' }}>
+          <div className="form-field mt-4 mb-3">
             <label className="form-label">Your UPI VPA (to embed in share link)</label>
             <input
               className="form-input"
@@ -477,13 +538,13 @@ export default function TradeDetailPage() {
               onChange={e => setSellerVpa(e.target.value)}
             />
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div className="seller-share-row">
             <button type="button" onClick={copySellerTradeLink} className="app-btn app-btn--primary" disabled={!sellerVpa.trim()}>
               {sellerLinkCopied ? <Check size={14} /> : <Copy size={14} />}
               {sellerLinkCopied ? 'Copied' : 'Copy trade link'}
             </button>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+          <div className="seller-action-row">
             {isExpired && (
               <button onClick={handleCancel} className="app-btn app-btn--warning">
                 Cancel expired trade (refund SOL)
@@ -498,10 +559,10 @@ export default function TradeDetailPage() {
           </div>
 
           {buyerProof ? (
-            <div style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid #22c55e', borderRadius: 10, background: 'color-mix(in oklab, #22c55e 8%, var(--bg))' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <CheckCircle size={16} color="#22c55e" />
-                <p style={{ fontFamily: 'var(--mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#22c55e', margin: 0 }}>
+            <div className="buyer-proof-box">
+              <div className="buyer-proof-head">
+                <CheckCircle size={16} style={{ color: 'var(--color-success)' }} />
+                <p className="buyer-proof-label">
                   {buyerProof.setuVerified ? 'Payment received · Setu verified' : 'Payment submitted by buyer'}
                 </p>
               </div>
@@ -515,13 +576,13 @@ export default function TradeDetailPage() {
                   <dd className="mono-sm">{buyerProof.utrNumber}</dd>
                 </div>
               </dl>
-              <p className="form-hint" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
+              <p className="form-hint mt-2" style={{ marginBottom: 0 }}>
                 SOL will be released to the buyer once on-chain attestation confirms.
               </p>
             </div>
           ) : (
             !isOpen && (
-              <p className="form-hint" style={{ marginTop: '1rem' }}>
+              <p className="form-hint mt-4">
                 Waiting for buyer to complete payment and Setu verification…
               </p>
             )
@@ -532,15 +593,15 @@ export default function TradeDetailPage() {
       {/* Buyer: dispute option */}
       {isActive && isBuyer && !isOpen && (
         <div className="app-card">
-          <h3 className="card-title" style={{ marginBottom: '0.75rem' }}>Dispute</h3>
-          <p className="form-hint" style={{ marginBottom: '1rem' }}>
+          <h3 className="card-title mb-3">Dispute</h3>
+          <p className="form-hint mb-4">
             If the seller is unresponsive after you have paid, raise a dispute to freeze funds pending resolution.
           </p>
           <button onClick={handleDispute} disabled={disputing} className="app-btn app-btn--ghost">
             {disputing ? <Loader2 size={14} className="spin" /> : null}
             {disputing ? 'Raising dispute…' : 'Raise dispute'}
           </button>
-          {error && <p className="app-error" style={{ marginTop: '0.5rem' }}>{error}</p>}
+          {error && <p className="app-error mt-2">{error}</p>}
         </div>
       )}
     </div>
