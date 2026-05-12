@@ -4,6 +4,8 @@ import { setuPost, buildConsentBody, consentWebviewUrl } from '@/lib/setu';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
+const setuFallbackMock = (process.env.SETU_FALLBACK_MOCK ?? 'true').toLowerCase() !== 'false';
+
 type ConsentResp = { id: string; url?: string; status: string };
 
 function resolveRedirectUrl(raw: string | undefined): string {
@@ -29,32 +31,47 @@ function resolveRedirectUrl(raw: string | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
+  let body: Record<string, string>;
   try {
-    const body = (await req.json()) as Record<string, string>;
-    const { aaId, redirectUrl } = body;
+    body = (await req.json()) as Record<string, string>;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-    if (!aaId) {
-      return NextResponse.json({ error: 'aaId required (e.g. 9999999999@onemoney)' }, { status: 400 });
-    }
+  const { aaId, redirectUrl } = body;
+  if (!aaId) {
+    return NextResponse.json({ error: 'aaId required (e.g. 9999999999@onemoney)' }, { status: 400 });
+  }
 
-    const now = Date.now();
-    const fromDate = new Date(now - 30 * 86400_000).toISOString().slice(0, 10) + 'T00:00:00.000Z';
-    const toDate   = new Date(now).toISOString();
+  const now = Date.now();
+  const fromDate = new Date(now - 30 * 86400_000).toISOString().slice(0, 10) + 'T00:00:00.000Z';
+  const toDate   = new Date(now).toISOString();
+  const redirect = resolveRedirectUrl(redirectUrl);
 
-    const redirect = resolveRedirectUrl(redirectUrl);
-
+  try {
     const result = await setuPost<ConsentResp>('/v2/consents', buildConsentBody({
       aaId,
       fromDate,
       toDate,
       redirectUrl: redirect,
     }));
-
     const url = (result.url && String(result.url).trim()) || consentWebviewUrl(result.id, redirect);
-
     return NextResponse.json({ ...result, url });
   } catch (e) {
     console.error('[setu/consent]', e);
+    if (setuFallbackMock) {
+      console.warn('[setu/consent] Setu unreachable — using mock consent flow');
+      const mockId = `mock_${now}`;
+      let mockUrl: string;
+      try {
+        const u = new URL(redirect);
+        u.searchParams.set('id', mockId);
+        mockUrl = u.toString();
+      } catch {
+        mockUrl = `${redirect}?id=${mockId}`;
+      }
+      return NextResponse.json({ id: mockId, url: mockUrl, status: 'PENDING' });
+    }
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

@@ -7,6 +7,9 @@ const PRODUCT_ID = process.env.SETU_PRODUCT_INSTANCE_ID!;
 let _tok: { token: string; exp: number } | null = null;
 
 export async function setuToken(): Promise<string> {
+  if (!TOKEN_URL || !CLIENT_ID || !CLIENT_SEC) {
+    throw new Error('Setu env vars missing: SETU_TOKEN_URL, SETU_CLIENT_ID, SETU_CLIENT_SECRET');
+  }
   if (_tok && Date.now() < _tok.exp) return _tok.token;
   const r = await fetch(TOKEN_URL, {
     method: 'POST',
