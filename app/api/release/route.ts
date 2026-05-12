@@ -19,7 +19,8 @@ import {
 } from '@/lib/solana/program';
 import { buildAttestationMessage, sha256 } from '@/lib/solana/utils';
 import { SOLANA_RPC, ORACLE_PUBKEY_HEX } from '@/lib/constants';
-import type { OracleAttestationResponse } from '@/types';
+import type { OracleAttestationResponse, TxnRecord } from '@/types';
+import { calculateTaxLines } from '@/lib/tax';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -32,6 +33,8 @@ type ReleaseBody = {
   sessionId?: string;
   utrNumber?: string;
   evidenceHash?: string;
+  country?: string;
+  fiatCurrency?: string;
 };
 
 function loadOracleKeypair(): Keypair {
@@ -162,6 +165,33 @@ export async function POST(req: NextRequest) {
 
     const signature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
     await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+
+    // Persist transaction record (fire-and-forget — never fail release over storage errors)
+    const country = (body.country ?? 'IN').toUpperCase();
+    const fiatCurrency = body.fiatCurrency ?? 'INR';
+    const fiatAmountMinor = Number(trade.inrAmount);
+    const record: TxnRecord = {
+      tradeId: tradeIdHex,
+      seller: trade.seller,
+      buyer: trade.buyer,
+      solLamports: Number(trade.lamports),
+      fiatAmountMinor,
+      fiatCurrency,
+      country,
+      utrNumber: body.utrNumber,
+      payerVpa: body.payerId,
+      attestationHash: attestRes.attestationHash,
+      riskScore: attestRes.riskScore,
+      taxes: calculateTaxLines(fiatAmountMinor, country),
+      txSignature: signature,
+      releasedAt: Date.now(),
+      createdAt: Number(trade.createdAt) * 1000,
+    };
+    fetch(`${origin}/api/txns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+    }).catch((e) => console.warn('[release] txn record save failed (non-fatal):', e));
 
     return NextResponse.json({ signature });
   } catch (e) {

@@ -132,6 +132,34 @@ export interface OracleRate {
   inrPerUsd: number;
 }
 
+export interface TaxLine {
+  label: string;
+  section: string;
+  rate: number;
+  amountMinor: number;
+  amountFormatted: string;
+  applicable: boolean;
+  notes?: string;
+}
+
+export interface TxnRecord {
+  tradeId: string;
+  seller: string;
+  buyer: string;
+  solLamports: number;
+  fiatAmountMinor: number;
+  fiatCurrency: string;
+  country: string;
+  utrNumber?: string;
+  payerVpa?: string;
+  attestationHash?: string;
+  riskScore?: number;
+  taxes: TaxLine[];
+  txSignature: string;
+  releasedAt: number;
+  createdAt: number;
+}
+
 export interface OpenOrder {
   tradeIdHex: string;
   seller: string;

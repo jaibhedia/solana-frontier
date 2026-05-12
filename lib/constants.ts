@@ -39,7 +39,7 @@ export const SUPABASE_URL      = process.env.NEXT_PUBLIC_SUPABASE_URL      ?? ''
 export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const SOLANA_RPC        = process.env.NEXT_PUBLIC_SOLANA_RPC_URL    ?? 'https://api.devnet.solana.com';
 export const APP_VERSION       = process.env.NEXT_PUBLIC_APP_VERSION       ?? 'v0.9.2';
-export const BETA_LABEL        = process.env.NEXT_PUBLIC_BETA_LABEL        ?? 'India · UPI settlement · Solana devnet';
+export const BETA_LABEL        = process.env.NEXT_PUBLIC_BETA_LABEL        ?? 'Global P2P · Local settlement · Solana';
 
 export const PROGRAM_ID_STR    = process.env.NEXT_PUBLIC_PROGRAM_ID        ?? 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS';
 export const ORACLE_PUBKEY_HEX = process.env.NEXT_PUBLIC_ORACLE_PUBKEY_HEX ?? '';

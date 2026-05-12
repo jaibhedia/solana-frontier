@@ -10,6 +10,8 @@ import { createHash } from 'crypto';
 import { getTrade, findTradePda, cancelExpiredTrade, raiseDispute } from '@/lib/solana/program';
 import { lamportsToSol, paisaToInr, txExplorerUrl } from '@/lib/solana/utils';
 import { TRADE_STATUS, ZERO_PUBKEY } from '@/lib/constants';
+import { useUserPrefs } from '@/contexts/UserPrefsContext';
+import { currencyForCountry } from '@/lib/tax';
 import { UpiQrCode } from '@/components/UpiQrCode';
 import { CheckCircle, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 import type { SolanaTradeInfo } from '@/types';
@@ -30,6 +32,7 @@ export default function TradeDetailPage() {
 
   const { connection } = useConnection();
   const wallet = useWallet();
+  const { prefs } = useUserPrefs();
 
   const [trade, setTrade] = useState<SolanaTradeInfo | null | undefined>(undefined);
   const [payerId, setPayerId] = useState('buyer@upi');
@@ -293,6 +296,8 @@ export default function TradeDetailPage() {
         payeeId: sellerVpa || 'seller@upi',
         utrNumber,
         evidenceHash: utrNumber,
+        country: prefs.country ?? 'IN',
+        fiatCurrency: currencyForCountry(prefs.country ?? 'IN'),
         ...(setuConsentId ? { consentId: setuConsentId } : {}),
         ...(setuSessionId ? { sessionId: setuSessionId } : {}),
       }),
@@ -486,7 +491,7 @@ export default function TradeDetailPage() {
               <button
                 onClick={() => {
                   setReleasing(true); setError('');
-                  fetch('/api/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tradeId: tradeIdHex, payerId, payeeId: sellerVpa || 'seller@upi', utrNumber, evidenceHash: utrNumber }) })
+                  fetch('/api/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tradeId: tradeIdHex, payerId, payeeId: sellerVpa || 'seller@upi', utrNumber, evidenceHash: utrNumber, country: prefs.country ?? 'IN', fiatCurrency: currencyForCountry(prefs.country ?? 'IN') }) })
                     .then(async r => { const d = await r.json(); if (!r.ok || !d.signature) throw new Error(d.error ?? 'Release failed'); setReleaseTx(d.signature); setTimeout(refreshTrade, 3000); })
                     .catch(e => setError(e instanceof Error ? e.message : String(e)))
                     .finally(() => setReleasing(false));

@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { lamportsToSol, paisaToInr, accountExplorerUrl, formatAddress } from '@/lib/solana/utils';
 import { PROGRAM_ID_STR, TRADE_STATUS, ZERO_PUBKEY } from '@/lib/constants';
+import { COUNTRY_CONFIG, formatFiat } from '@/lib/tax';
+import { useUserPrefs } from '@/contexts/UserPrefsContext';
+import type { TxnRecord } from '@/types';
 
 type TradeRow = {
   tradeIdHex: string;
@@ -26,10 +29,12 @@ type Stats = {
 export default function DashboardPage() {
   const { connection } = useConnection();
   const { publicKey, connected } = useWallet();
+  const { prefs } = useUserPrefs();
   const [balance, setBalance] = useState<string | null>(null);
   const [myTrades, setMyTrades] = useState<TradeRow[]>([]);
   const [tradesLoading, setTradesLoading] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [txnRecords, setTxnRecords] = useState<TxnRecord[]>([]);
 
   useEffect(() => {
     if (!publicKey) { setBalance(null); return; }
@@ -41,6 +46,14 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!publicKey) { setTxnRecords([]); return; }
+    fetch(`/api/txns?wallet=${publicKey.toBase58()}&limit=50`)
+      .then(r => r.json())
+      .then(d => setTxnRecords(d.records ?? []))
+      .catch(() => {});
+  }, [publicKey]);
 
   useEffect(() => {
     if (!publicKey) { setMyTrades([]); return; }
@@ -106,8 +119,79 @@ export default function DashboardPage() {
             <span className="action-card-title">Explorer</span>
             <span className="action-card-sub">Browse all trades and their on-chain state</span>
           </Link>
+          <Link href="/tax" className="action-card">
+            <span className="action-card-icon">◈</span>
+            <span className="action-card-title">Tax & History</span>
+            <span className="action-card-sub">Settled trades, per-trade taxes, multi-country calculator</span>
+          </Link>
         </div>
       </section>
+
+      {/* YTD Tax Summary */}
+      {connected && (() => {
+        const thisYear = new Date().getFullYear();
+        const ytd = txnRecords.filter(r => new Date(r.releasedAt).getFullYear() === thisYear);
+        const byCountry: Record<string, { volume: number; tax: number; count: number }> = {};
+        for (const r of ytd) {
+          const c = byCountry[r.country] ?? { volume: 0, tax: 0, count: 0 };
+          c.volume += r.fiatAmountMinor;
+          c.tax += r.taxes.filter(t => t.applicable).reduce((s, t) => s + t.amountMinor, 0);
+          c.count += 1;
+          byCountry[r.country] = c;
+        }
+
+        const preferredCountry = prefs.country;
+
+        return (
+          <section>
+            <p className="section-label">
+              {thisYear} Tax Summary · <Link href="/tax" className="app-link">Full breakdown →</Link>
+            </p>
+            <div className="app-card" style={{ display: 'grid', gap: '0.5rem' }}>
+              {/* Nudge if country not set */}
+              {!preferredCountry && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Jurisdiction not set</span>
+                  <Link href="/tax" className="app-link" style={{ fontSize: 12 }}>
+                    Set your country →
+                  </Link>
+                </div>
+              )}
+
+              {Object.keys(byCountry).length === 0 && (
+                <p className="form-hint" style={{ margin: 0 }}>No settled trades this year yet.</p>
+              )}
+
+              {Object.entries(byCountry).map(([code, data]) => {
+                const cfg = COUNTRY_CONFIG[code];
+                const isPreferred = code === preferredCountry;
+                return (
+                  <div key={code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: isPreferred ? 'var(--ink)' : 'var(--ink-2)', fontWeight: isPreferred ? 600 : 400 }}>
+                      {cfg?.name ?? code} · {data.count} trade{data.count !== 1 ? 's' : ''}
+                      {isPreferred && (
+                        <span style={{ marginLeft: 6, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>
+                          your jurisdiction
+                        </span>
+                      )}
+                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--ink)' }}>
+                        {formatFiat(data.volume, code)}
+                      </span>
+                      {data.tax > 0 && (
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent)', marginLeft: 8 }}>
+                          tax {formatFiat(data.tax, code)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* My Trades */}
       {connected && (
