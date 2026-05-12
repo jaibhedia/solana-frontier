@@ -68,8 +68,8 @@ export default function Waitlist() {
                 Get on the <em>early bench.</em>
               </h2>
               <p>
-                We&apos;re onboarding P2P desks, remittance builders, and curious
-                individuals first. Tell us who you are and we&apos;ll route you to
+                We&apos;re onboarding DeFi protocols, payment builders, and
+                developers first. Tell us who you are and we&apos;ll route you to
                 the right cohort.
               </p>
               {count !== null && count > 0 && (

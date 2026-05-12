@@ -16,9 +16,10 @@ export default function Hero() {
             <span>moved.</span>
           </h1>
           <p className="lede">
-            A neutral oracle layer that witnesses fiat settlement off-chain and
-            releases stablecoin escrow on-chain — in one verifiable call. Built
-            for the seven billion people who live between rails.
+            A decentralized verification layer that transforms any fiat payment
+            into a cryptographically signed on-chain primitive. Plug UPI, Pix,
+            or ACH directly into your protocol logic — no custodian, no
+            middleman, no trust required.
           </p>
           <div className="cta-row">
             <a href="#waitlist" className="btn">Join the waitlist</a>

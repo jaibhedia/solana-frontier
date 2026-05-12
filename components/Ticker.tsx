@@ -3,7 +3,7 @@ const items = [
   'Oracle attestation v2',
   'No custody · no screenshots',
   'Escrow releases on proof',
-  'Built for P2P fiat↔stablecoin',
+  'Built for any protocol that needs verified fiat',
   'Neutral · permissionless · verifiable',
   'Twelve currencies live',
   'One on-chain call',

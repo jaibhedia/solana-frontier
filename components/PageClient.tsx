@@ -6,6 +6,7 @@ import Hero from './Hero';
 import Ticker from './Ticker';
 import HowItWorks from './HowItWorks';
 import LiveExplorer from './LiveExplorer';
+import DemoVideo from './DemoVideo';
 import Waitlist from './Waitlist';
 import FAQ from './FAQ';
 import Footer from './Footer';
@@ -51,6 +52,7 @@ export default function PageClient() {
         <Ticker />
         <HowItWorks />
         <LiveExplorer />
+        <DemoVideo />
         <Waitlist />
         <FAQ />
       </main>

@@ -1,6 +1,51 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
+interface SealData {
+  inrAmount: number;
+  lamports: number;
+  tradeDate: string;
+  totalTrades: number;
+}
+
 export default function HeroSeal() {
+  const [data, setData] = useState<SealData | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [tradesRes, statsRes] = await Promise.all([
+          fetch('/api/trades'),
+          fetch('/api/stats'),
+        ]);
+        const tradesData = await tradesRes.json();
+        const statsData  = await statsRes.json();
+        const trades: Array<{ status: number; inrAmount: string; lamports: string; createdAt: number }> =
+          tradesData.trades ?? [];
+        const latest = trades.find(t => t.status === 2) ?? trades[0];
+        setData({
+          inrAmount:   latest ? Number(latest.inrAmount)  : 0,
+          lamports:    latest ? Number(latest.lamports)   : 0,
+          tradeDate:   latest
+            ? new Date(latest.createdAt * 1000).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+          totalTrades: statsData.totalTrades ?? trades.length,
+        });
+      } catch { /* silent */ }
+    }
+    load();
+  }, []);
+
+  const inr      = data && data.inrAmount > 0
+    ? (data.inrAmount / 100).toLocaleString('en-IN')
+    : '—';
+  const sol      = data && data.lamports > 0
+    ? (data.lamports / 1e9).toFixed(3)
+    : '—';
+  const lot      = data ? String(data.totalTrades).padStart(5, '0') : '·····';
+  const dateStr  = data?.tradeDate ?? '————————';
+
   return (
     <div className="seal-card" aria-label="attestation seal">
       <svg viewBox="0 0 500 500">
@@ -42,16 +87,16 @@ export default function HeroSeal() {
           <rect x="-95" y="-55" width="190" height="110" rx="8" fill="none" stroke="var(--accent)" strokeWidth="2" opacity="0.85" />
           <rect x="-90" y="-50" width="180" height="100" rx="6" fill="none" stroke="var(--accent)" strokeWidth="0.7" opacity="0.7" />
         </g>
-        {/* corner marks */}
-        <text x="40" y="38" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">LOT · 00412</text>
+        {/* corner marks — live data */}
+        <text x="40" y="38" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">LOT · {lot}</text>
         <text x="360" y="38" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">SEAL · 07</text>
-        <text x="40" y="478" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">2026-04-19</text>
+        <text x="40" y="478" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">{dateStr}</text>
         <text x="340" y="478" fontFamily="var(--mono)" fontSize="10" letterSpacing="2" fill="var(--ink-mute)">v0.9.2</text>
       </svg>
       <div className="seal-meta">
         <div>attested settlement</div>
-        <span className="big">₹ 1,24,800</span>
-        <div className="tiny">≈ 1,500 usdc · block 22,409,118</div>
+        <span className="big">₹ {inr}</span>
+        <div className="tiny">≈ {sol} sol</div>
       </div>
     </div>
   );

@@ -136,13 +136,14 @@ button { font-family: inherit; cursor: pointer; }
 .theme-toggle--placeholder { visibility: hidden; pointer-events: none; }
 
 /* ---------- Hero ---------- */
-.hero { padding: 72px 0 40px; position: relative; }
+.hero { padding: 72px 0 40px; position: relative; overflow: hidden; }
 .hero-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
-  align-items: end;
+  align-items: center;
 }
+.hero-grid > * { min-width: 0; }
 @media (max-width: 960px) { .hero-grid { grid-template-columns: 1fr; gap: 32px; } }
 
 .eyebrow {
@@ -201,9 +202,9 @@ button { font-family: inherit; cursor: pointer; }
 .seal-card {
   position: relative;
   aspect-ratio: 1 / 1;
-  width: 100%;
-  max-width: 520px;
-  margin-left: auto;
+  width: min(100%, 480px);
+  max-width: 480px;
+  margin: 0 auto;
   background:
     radial-gradient(ellipse at 30% 20%, #FBF6EA 0%, #EEDFBC 60%, #D9BE85 100%);
   border-radius: 50%;
